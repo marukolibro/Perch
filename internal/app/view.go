@@ -28,8 +28,12 @@ const (
 	sidebarTabWidth    float32 = 34
 	sidebarTabHeight   float32 = 28
 	sidebarTabIconSize float32 = 16
-	projectNameHeight  float32 = 30
-	minSidebarWidth    float32 = 232
+	// sidebarMarkSize is the dot on the Git button that says files are left
+	// to read, and sidebarMarkInset how far in from the button's corner it sits.
+	sidebarMarkSize   float32 = 7
+	sidebarMarkInset  float32 = 5
+	projectNameHeight float32 = 30
+	minSidebarWidth   float32 = 232
 
 	tabHeight   float32 = 30
 	tabIconSize float32 = 13
@@ -59,6 +63,7 @@ func (a *App) view(c *ui.Context) {
 		a.settingsView(c)
 		return
 	}
+	a.setWindowHidden(c.WindowHidden())
 	a.sidebarWidth = max(a.sidebarWidth, minSidebarWidth)
 	if a.sidebarHidden {
 		a.mainView(c)
@@ -118,17 +123,17 @@ func (a *App) sidebarHeaderView(c *ui.Context) {
 	bar := c.TitleBar()
 	ui.Row(c).FillWidth().Height(headerHeight).Shrink(0).Gap(2).PaddingStart(bar.Left + controlsGap).PaddingEnd(8).
 		AlignItems(ui.Center).DragWindow().Children(func() {
-		if a.sidebarTabView(c, iconFiles, locales.TabFiles(), a.sidebarTab == sidebarFiles) {
-			a.sidebarTab = sidebarFiles
+		if a.sidebarTabView(c, iconFiles, locales.TabFiles(), a.sidebarTab == sidebarFiles, false) {
+			a.switchSidebarTab(sidebarFiles)
 		}
-		if a.sidebarTabView(c, iconSearch, locales.TabSearch(), a.sidebarTab == sidebarSearch) {
+		if a.sidebarTabView(c, iconSearch, locales.TabSearch(), a.sidebarTab == sidebarSearch, false) {
 			a.showFindInFiles()
 		}
-		if a.sidebarTabView(c, iconChanges, gitTabLabel, a.sidebarTab == sidebarChanges) {
+		if a.sidebarTabView(c, iconChanges, gitTabLabel, a.sidebarTab == sidebarChanges, a.review.unread > 0) {
 			a.showChanges()
 		}
 		ui.Spacer(c)
-		if a.sidebarTabView(c, iconSettings, locales.SettingsTitle(), false) {
+		if a.sidebarTabView(c, iconSettings, locales.SettingsTitle(), false, false) {
 			a.showSettings()
 		}
 	})
@@ -155,7 +160,9 @@ func (a *App) projectNameView(c *ui.Context) {
 }
 
 // sidebarTabView builds a button of the sidebar's views and reports a click.
-func (a *App) sidebarTabView(c *ui.Context, icon *ui.SVG, label string, active bool) bool {
+// When marked is true and the view is not showing, a quiet dot sits at its top
+// right corner.
+func (a *App) sidebarTabView(c *ui.Context, icon *ui.SVG, label string, active bool, marked bool) bool {
 	colors := a.look.palette
 	button := ui.Box(c).Size(sidebarTabWidth, sidebarTabHeight).Center().Radius(radiusControl).Label(label)
 	sidebarTooltip(c, button, label, colors)
@@ -171,6 +178,12 @@ func (a *App) sidebarTabView(c *ui.Context, icon *ui.SVG, label string, active b
 	clicked := button.Clicked()
 	button.Children(func() {
 		ui.Icon(c, icon).FontSize(sidebarTabIconSize).TextColor(color)
+		if marked && !active {
+			// The dot only tells, so it takes no pointer of its own: the button
+			// around it is what the click and assistive technology reach.
+			ui.Box(c).Absolute().Top(sidebarMarkInset).Right(sidebarMarkInset).Size(sidebarMarkSize, sidebarMarkSize).
+				Radius(sidebarMarkSize / 2).Background(colors.accent).IgnoreInput(true).AccessHidden(true)
+		}
 	})
 	return clicked
 }
@@ -368,7 +381,7 @@ func (a *App) tabsView(c *ui.Context) {
 	}
 	ui.Row(c).FillWidth().Height(headerHeight).Shrink(0).Gap(4).PaddingStart(leftPad).PaddingEnd(max(panelMargin, bar.Right+controlsGap)).
 		AlignItems(ui.Center).Background(colors.sidebar).DragWindow().Children(func() {
-		if a.sidebarHidden && a.sidebarTabView(c, iconSidebar, locales.ShowSidebar(), false) {
+		if a.sidebarHidden && a.sidebarTabView(c, iconSidebar, locales.ShowSidebar(), false, false) {
 			a.toggleSidebar()
 		}
 		ui.ScrollHorizontal(c).Shrink(1).FillHeight().Children(func() {

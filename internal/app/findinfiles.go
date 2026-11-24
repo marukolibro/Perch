@@ -65,8 +65,7 @@ func (a *App) showFindInFiles() {
 	if a.root == "" {
 		return
 	}
-	a.sidebarHidden = false
-	a.sidebarTab = sidebarSearch
+	a.switchSidebarTab(sidebarSearch)
 	a.find.input.SelectAll()
 	d := a.activeDocument()
 	if d == nil || d.editor == nil {

@@ -233,8 +233,7 @@ func (a *App) revealInTree(relPath string) {
 	if a.root == "" || relPath == "" || relPath == "." {
 		return
 	}
-	a.sidebarHidden = false
-	a.sidebarTab = sidebarFiles
+	a.switchSidebarTab(sidebarFiles)
 	a.expandTreeTo(path.Dir(relPath))
 	a.pendingReveal = relPath
 }

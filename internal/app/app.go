@@ -48,6 +48,7 @@ type App struct {
 	sidebarWidth  float32
 	sidebarTab    int
 	sidebarHidden bool
+	windowHidden  bool
 
 	quick   quickOpen
 	outline outlineState

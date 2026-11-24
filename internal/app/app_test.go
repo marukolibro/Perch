@@ -1407,6 +1407,206 @@ func TestChangesExplainAFolderOutsideGit(t *testing.T) {
 	}
 }
 
+// gitMarkPixel reads the window at the center of where the Git button's dot
+// is drawn, at scale 1: the third button of the sidebar's header, in from its
+// top right corner.
+func gitMarkPixel(t *testing.T, tester *ui.Tester) uint32 {
+	t.Helper()
+	x := controlsGap + 2*(sidebarTabWidth+2) + sidebarTabWidth - sidebarMarkInset - sidebarMarkSize/2
+	y := (headerHeight-sidebarTabHeight)/2 + sidebarMarkInset + sidebarMarkSize/2
+	tester.SetScale(1)
+	tester.Frame()
+	r, g, b, _ := tester.Image().At(int(x+0.5), int(y+0.5)).RGBA()
+	return uint32(uint8(r>>8))<<16 | uint32(uint8(g>>8))<<8 | uint32(uint8(b>>8))
+}
+
+// waitForUnread runs what background work hands to the window until the review
+// reports want unread files and has nothing left to do.
+func waitForUnread(t *testing.T, a *App, tester *ui.Tester, posted <-chan func(), want int) {
+	t.Helper()
+	followPosts(t, posted, tester, func() bool {
+		return !a.review.opening && !a.review.busy() && !a.review.queued && a.review.unread == want
+	})
+}
+
+// TestGitButtonMarksUnreadChangesWhileAnotherViewShows pins the quiet mark:
+// an agent's writes put a dot on the Git button while the Files page shows,
+// background checks skip head/branch reads, the dot leaves once everything is
+// reviewed, and the Git page never wears it.
+func TestGitButtonMarksUnreadChangesWhileAnotherViewShows(t *testing.T) {
+	root := reviewedRepository(t)
+	a, tester, posted := openWithPosts(t, root)
+	t.Cleanup(a.stopChanges)
+	// The delay of a refresh ends at once, on the test's thread.
+	a.after = func(_ time.Duration, action func()) { go a.post(action) }
+	tester.Frame()
+	// Opening the folder begins the review and reads it once for the mark.
+	a.beginReview()
+	followPosts(t, posted, tester, func() bool {
+		return a.review.loaded && !a.review.opening && !a.review.busy() && !a.review.queued
+	})
+	if a.sidebarTab != sidebarFiles {
+		t.Fatalf("the sidebar opened on tab %d", a.sidebarTab)
+	}
+	if a.review.head.Commit != "" || len(a.review.branches) != 0 {
+		t.Errorf("background check read full Git page state: head=%+v branches=%v", a.review.head, a.review.branches)
+	}
+	before := gitMarkPixel(t, tester)
+
+	writeFile(t, root, "a.go", "package a\n\nfunc Agent() {}\n")
+	a.applyFileEvents([]mygo.FileEvent{{Op: mygo.FileWrite, Path: "a.go"}})
+	waitForUnread(t, a, tester, posted, 1)
+	if a.sidebarTab != sidebarFiles {
+		t.Fatalf("the sidebar turned to tab %d", a.sidebarTab)
+	}
+	if a.review.head.Commit != "" || len(a.review.branches) != 0 {
+		t.Errorf("background refresh read full Git page state: head=%+v branches=%v", a.review.head, a.review.branches)
+	}
+	marked := gitMarkPixel(t, tester)
+	accent := a.look.palette.accent
+	if want := uint32(accent.R)<<16 | uint32(accent.G)<<8 | uint32(accent.B); marked != want {
+		t.Fatalf("the dot is %06x at the Git button's corner, want the accent %06x; before it was %06x", marked, want, before)
+	}
+	if marked == before {
+		t.Fatalf("the Git button's corner did not change: %06x", before)
+	}
+
+	a.markAllReviewed()
+	waitForUnread(t, a, tester, posted, 0)
+	if cleared := gitMarkPixel(t, tester); cleared != before {
+		t.Errorf("the dot stayed after everything was reviewed: %06x, want the bare corner %06x", cleared, before)
+	}
+
+	writeFile(t, root, "b.go", "package b\n\nvar Two = 2\n")
+	a.applyFileEvents([]mygo.FileEvent{{Op: mygo.FileWrite, Path: "b.go"}})
+	waitForUnread(t, a, tester, posted, 1)
+	if again := gitMarkPixel(t, tester); again != marked {
+		t.Errorf("a later write put no dot back: %06x, want %06x", again, marked)
+	}
+
+	a.showChanges()
+	settleChanges(t, a, tester, posted)
+	if a.review.head.Commit == "" || len(a.review.branches) == 0 {
+		t.Errorf("showing the Git page did not read head/branches: head=%+v branches=%v", a.review.head, a.review.branches)
+	}
+	if shown := gitMarkPixel(t, tester); shown == marked {
+		t.Errorf("the Git page wears its own dot: %06x", shown)
+	}
+}
+
+// TestGitButtonMarkTracksReviewAcrossCompareModes ensures the quiet dot always
+// reflects unread review changes even when the Git page is left on Branch or
+// Uncommitted comparison.
+func TestGitButtonMarkTracksReviewAcrossCompareModes(t *testing.T) {
+	root := reviewedRepository(t)
+	gitIn(t, root, "branch", "-M", "main")
+	gitIn(t, root, "switch", "--quiet", "-c", "feature")
+	writeFile(t, root, "a.go", "package a\n\nfunc Committed() {}\n")
+	gitIn(t, root, "commit", "--quiet", "-am", "committed before review")
+
+	a, tester, posted := openWithPosts(t, root)
+	t.Cleanup(a.stopChanges)
+	a.after = func(_ time.Duration, action func()) { go a.post(action) }
+	tester.Frame()
+	a.beginReview()
+	followPosts(t, posted, tester, func() bool {
+		return a.review.loaded && !a.review.opening && !a.review.busy()
+	})
+	before := gitMarkPixel(t, tester)
+	accent := a.look.palette.accent
+	wantDot := uint32(accent.R)<<16 | uint32(accent.G)<<8 | uint32(accent.B)
+
+	// Switch the Git page to Branch comparison (1 file differs from main,
+	// none unread in the review), then return to Files: the dot must stay off.
+	a.showChanges()
+	settleChanges(t, a, tester, posted)
+	if err := tester.Click("Branch"); err != nil {
+		t.Fatal(err)
+	}
+	settleChanges(t, a, tester, posted)
+	if len(a.review.listing.Changes) != 1 {
+		t.Fatalf("branch listing %+v, want 1 file", a.review.listing.Changes)
+	}
+	a.switchSidebarTab(sidebarFiles)
+	waitForUnread(t, a, tester, posted, 0)
+	if got := gitMarkPixel(t, tester); got != before {
+		t.Errorf("branch comparison lit the review dot: %06x, want bare corner %06x", got, before)
+	}
+
+	// Switch the Git page to Uncommitted comparison, return to Files, and have
+	// an agent write and commit a change: Uncommitted is empty, but the review
+	// has an unread file so the dot must appear.
+	a.showChanges()
+	settleChanges(t, a, tester, posted)
+	if err := tester.Click("Uncommitted"); err != nil {
+		t.Fatal(err)
+	}
+	settleChanges(t, a, tester, posted)
+	a.switchSidebarTab(sidebarFiles)
+	waitForUnread(t, a, tester, posted, 0)
+
+	writeFile(t, root, "b.go", "package b\n\nfunc AgentCommitted() {}\n")
+	gitIn(t, root, "commit", "--quiet", "-am", "agent commit")
+	a.applyFileEvents([]mygo.FileEvent{{Op: mygo.FileWrite, Path: "b.go"}})
+	waitForUnread(t, a, tester, posted, 1)
+	if got := gitMarkPixel(t, tester); got != wantDot {
+		t.Errorf("committed agent change under Uncommitted mode did not light the dot: %06x, want %06x", got, wantDot)
+	}
+}
+
+func TestBeginReviewRemembersAFolderOutsideGit(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "a.go", "package a\n")
+	a, tester, posted := openWithPosts(t, root)
+	t.Cleanup(a.stopChanges)
+	a.after = func(_ time.Duration, action func()) { go a.post(action) }
+	tester.Frame()
+	a.beginReview()
+	followPosts(t, posted, tester, func() bool {
+		return !a.review.opening && a.review.notRepository
+	})
+	a.applyFileEvents([]mygo.FileEvent{{Op: mygo.FileWrite, Path: "a.go"}})
+	if a.review.queued || a.review.busy() || a.review.unread != 0 {
+		t.Errorf("outside Git: queued=%v busy=%v unread=%d", a.review.queued, a.review.busy(), a.review.unread)
+	}
+}
+
+func TestGitButtonDefersBackgroundRefreshWhileWindowHidden(t *testing.T) {
+	root := reviewedRepository(t)
+	a, tester, posted := openWithPosts(t, root)
+	t.Cleanup(a.stopChanges)
+	a.after = func(_ time.Duration, action func()) { go a.post(action) }
+	tester.Frame()
+	a.beginReview()
+	followPosts(t, posted, tester, func() bool {
+		return a.review.loaded && !a.review.opening && !a.review.busy()
+	})
+	accent := a.look.palette.accent
+	wantDot := uint32(accent.R)<<16 | uint32(accent.G)<<8 | uint32(accent.B)
+
+	// While nothing of the window is on screen, file events must not schedule
+	// timers or run Git refreshes.
+	tester.SetWindowHidden(true)
+	writeFile(t, root, "a.go", "package a\n\nfunc First() {}\n")
+	a.applyFileEvents([]mygo.FileEvent{{Op: mygo.FileWrite, Path: "a.go"}})
+	writeFile(t, root, "b.go", "package b\n\nfunc Second() {}\n")
+	a.applyFileEvents([]mygo.FileEvent{{Op: mygo.FileWrite, Path: "b.go"}})
+	if a.review.queued || a.review.busy() || !a.review.staleWhileHidden || a.review.unread != 0 {
+		t.Fatalf("while hidden: queued=%v busy=%v stale=%v unread=%d",
+			a.review.queued, a.review.busy(), a.review.staleWhileHidden, a.review.unread)
+	}
+
+	// Returning to screen runs one refresh immediately and lights the dot.
+	tester.SetWindowHidden(false)
+	waitForUnread(t, a, tester, posted, 2)
+	if a.review.staleWhileHidden {
+		t.Error("staleWhileHidden stayed true after returning to screen")
+	}
+	if got := gitMarkPixel(t, tester); got != wantDot {
+		t.Errorf("returning to screen did not light the dot: %06x, want %06x", got, wantDot)
+	}
+}
+
 func TestLinesMapAcrossADiff(t *testing.T) {
 	hunks := []editor.DiffHunk{{OldStart: 2, OldEnd: 4, NewStart: 2, NewEnd: 7}}
 	cases := []struct {

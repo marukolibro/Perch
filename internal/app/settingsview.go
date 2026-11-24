@@ -98,6 +98,9 @@ func (a *App) toggleSidebar() {
 		return
 	}
 	a.sidebarHidden = !a.sidebarHidden
+	if a.showsChangesPanel() {
+		a.refreshChanges()
+	}
 }
 
 // changeFontSize steps the code font size within its limits and saves it.

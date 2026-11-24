@@ -60,6 +60,7 @@ Perch is developed and tested on macOS. The Windows and Linux builds compile and
 - **Compare with anything.** Switch between your last review, uncommitted changes and another branch.
 - **See the history.** Browse commits and open any commit's changes. The file tree marks changed files. Each file has its own history, and resting the pointer on a line shows who last changed it.
 - **Unread lines in the editor.** While you read a file, the lines you have not reviewed are marked beside the line numbers as they are written.
+- **Know without looking.** While you read elsewhere, a quiet dot on the Git button says an agent has left files for you to read. It goes once you have reviewed them.
 
 Reviews are kept as Git trees under `refs/perch/`, so they cost nothing in your working tree and survive commits, rebases and restarts.
 
