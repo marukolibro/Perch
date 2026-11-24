@@ -123,17 +123,17 @@ func (a *App) sidebarHeaderView(c *ui.Context) {
 	bar := c.TitleBar()
 	ui.Row(c).FillWidth().Height(headerHeight).Shrink(0).Gap(2).PaddingStart(bar.Left + controlsGap).PaddingEnd(8).
 		AlignItems(ui.Center).DragWindow().Children(func() {
-		if a.sidebarTabView(c, iconFiles, locales.TabFiles(), a.sidebarTab == sidebarFiles, false) {
+		if a.sidebarTabView(c, iconFiles, locales.TabFiles(), a.sidebarTab == sidebarFiles) {
 			a.switchSidebarTab(sidebarFiles)
 		}
-		if a.sidebarTabView(c, iconSearch, locales.TabSearch(), a.sidebarTab == sidebarSearch, false) {
+		if a.sidebarTabView(c, iconSearch, locales.TabSearch(), a.sidebarTab == sidebarSearch) {
 			a.showFindInFiles()
 		}
-		if a.sidebarTabView(c, iconChanges, gitTabLabel, a.sidebarTab == sidebarChanges, a.review.unread > 0) {
+		if a.gitTabView(c, a.sidebarTab == sidebarChanges) {
 			a.showChanges()
 		}
 		ui.Spacer(c)
-		if a.sidebarTabView(c, iconSettings, locales.SettingsTitle(), false, false) {
+		if a.sidebarTabView(c, iconSettings, locales.SettingsTitle(), false) {
 			a.showSettings()
 		}
 	})
@@ -160,9 +160,29 @@ func (a *App) projectNameView(c *ui.Context) {
 }
 
 // sidebarTabView builds a button of the sidebar's views and reports a click.
-// When marked is true and the view is not showing, a quiet dot sits at its top
-// right corner.
-func (a *App) sidebarTabView(c *ui.Context, icon *ui.SVG, label string, active bool, marked bool) bool {
+func (a *App) sidebarTabView(c *ui.Context, icon *ui.SVG, label string, active bool) bool {
+	return a.sidebarButtonView(c, icon, label, active, func() {})
+}
+
+// gitTabView builds the Git page's button, with the unread dot while the page
+// is not the one showing.
+func (a *App) gitTabView(c *ui.Context, active bool) bool {
+	return a.sidebarButtonView(c, iconChanges, gitTabLabel, active, func() {
+		if !active {
+			a.unreadMarkView(c)
+		}
+	})
+}
+
+// showSidebarButtonView builds the button that brings the hidden sidebar back.
+// It carries the Git button's unread dot, which is hidden with the sidebar.
+func (a *App) showSidebarButtonView(c *ui.Context) bool {
+	return a.sidebarButtonView(c, iconSidebar, locales.ShowSidebar(), false, func() { a.unreadMarkView(c) })
+}
+
+// sidebarButtonView builds a sidebar button and reports a click. decoration
+// draws over the icon, inside the button.
+func (a *App) sidebarButtonView(c *ui.Context, icon *ui.SVG, label string, active bool, decoration func()) bool {
 	colors := a.look.palette
 	button := ui.Box(c).Size(sidebarTabWidth, sidebarTabHeight).Center().Radius(radiusControl).Label(label)
 	sidebarTooltip(c, button, label, colors)
@@ -178,14 +198,21 @@ func (a *App) sidebarTabView(c *ui.Context, icon *ui.SVG, label string, active b
 	clicked := button.Clicked()
 	button.Children(func() {
 		ui.Icon(c, icon).FontSize(sidebarTabIconSize).TextColor(color)
-		if marked && !active {
-			// The dot only tells, so it takes no pointer of its own: the button
-			// around it is what the click and assistive technology reach.
-			ui.Box(c).Absolute().Top(sidebarMarkInset).Right(sidebarMarkInset).Size(sidebarMarkSize, sidebarMarkSize).
-				Radius(sidebarMarkSize / 2).Background(colors.accent).IgnoreInput(true).AccessHidden(true)
-		}
+		decoration()
 	})
 	return clicked
+}
+
+// unreadMarkView puts a quiet dot at the top right corner of the button it is
+// in while the review has files left to read. The dot only tells, so it takes
+// no pointer of its own: the button around it is what the click and assistive
+// technology reach.
+func (a *App) unreadMarkView(c *ui.Context) {
+	if a.review.unread == 0 {
+		return
+	}
+	ui.Box(c).Absolute().Top(sidebarMarkInset).Right(sidebarMarkInset).Size(sidebarMarkSize, sidebarMarkSize).
+		Radius(sidebarMarkSize / 2).Background(a.look.palette.accent).IgnoreInput(true).AccessHidden(true)
 }
 
 // sidebarTooltip names a sidebar button below it, clear of the window's controls
@@ -381,7 +408,7 @@ func (a *App) tabsView(c *ui.Context) {
 	}
 	ui.Row(c).FillWidth().Height(headerHeight).Shrink(0).Gap(4).PaddingStart(leftPad).PaddingEnd(max(panelMargin, bar.Right+controlsGap)).
 		AlignItems(ui.Center).Background(colors.sidebar).DragWindow().Children(func() {
-		if a.sidebarHidden && a.sidebarTabView(c, iconSidebar, locales.ShowSidebar(), false, false) {
+		if a.sidebarHidden && a.showSidebarButtonView(c) {
 			a.toggleSidebar()
 		}
 		ui.ScrollHorizontal(c).Shrink(1).FillHeight().Children(func() {

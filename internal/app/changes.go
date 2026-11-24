@@ -40,17 +40,14 @@ const (
 	compareBranch      int = 2
 )
 
-// compareRequest is what one refresh of the changes reads.
-// full is true when the Git page itself is visible and needs the chosen
-// comparison, branch head and branch list; false reads only the review to keep
-// the Git button's unread mark up to date.
+// compareRequest is what one listing of the changes compares with.
 type compareRequest struct {
 	compare int
 	branch  string
-	full    bool
 }
 
-// gitReading is what one refresh of the Git page reads.
+// gitReading is what one refresh of the Git page, or of the review alone,
+// reads.
 type gitReading struct {
 	store    *review.Store
 	listing  review.Listing
@@ -147,14 +144,24 @@ func (a *App) showsChangesPanel() bool {
 	return !a.sidebarHidden && a.sidebarTab == sidebarChanges
 }
 
-// switchSidebarTab shows tab in the sidebar, and refreshes the quiet review
-// mark when leaving the Git page from another comparison so the dot stays true
-// to what is left to read.
+// switchSidebarTab shows tab in the sidebar.
 func (a *App) switchSidebarTab(tab int) {
-	leavingOtherCompare := a.sidebarTab == sidebarChanges && tab != sidebarChanges && a.review.compare != compareReview
+	wasShowing := a.showsChangesPanel()
 	a.sidebarHidden = false
 	a.sidebarTab = tab
-	if leavingOtherCompare && !a.review.notRepository {
+	a.followGitPageVisibility(wasShowing)
+}
+
+// followGitPageVisibility brings the changes up to date once the Git page
+// showed or went away. The page needs its full reading as it shows. Leaving it
+// from another comparison needs the review read again, so that the unread dot
+// stays true to what is left to read.
+func (a *App) followGitPageVisibility(wasShowing bool) {
+	showing := a.showsChangesPanel()
+	switch {
+	case showing && !wasShowing:
+		a.refreshChanges()
+	case wasShowing && !showing && a.review.compare != compareReview && !a.review.notRepository:
 		a.refreshChanges()
 	}
 }
@@ -261,7 +268,14 @@ func (a *App) refreshChanges() {
 	}
 	r.running, r.again, r.staleWhileHidden = true, false, false
 	ctx, store, root := r.ctx, r.store, a.root
-	request := a.changesRequest()
+	if !a.showsChangesPanel() {
+		go func() {
+			reading := readReview(ctx, store, root)
+			a.post(func() { a.reviewListed(ctx, reading) })
+		}()
+		return
+	}
+	request := r.request()
 	go func() {
 		reading := readGitPage(ctx, store, root, request)
 		a.post(func() { a.changesListed(ctx, request, reading) })
@@ -277,29 +291,25 @@ func (r *changesPanel) request() compareRequest {
 	return compareRequest{compare: r.compare, branch: r.branch}
 }
 
-func (a *App) changesRequest() compareRequest {
-	if !a.showsChangesPanel() {
-		return compareRequest{compare: compareReview}
-	}
-	request := a.review.request()
-	request.full = true
-	return request
-}
-
-// readGitPage lists the changes and, when the Git page itself is showing,
-// reads the branch the work tree is on and the branches to compare with.
-func readGitPage(ctx context.Context, store *review.Store, root string, request compareRequest) gitReading {
-	reading := gitReading{store: store}
-	if reading.store == nil {
-		reading.store, reading.err = review.Open(ctx, root)
-		if reading.err != nil {
-			return reading
-		}
-	}
-	if reading.listing, reading.err = listChanges(ctx, reading.store, root, request); reading.err != nil {
+// readReview lists only what the review has left to read, for the Git
+// button's unread dot while the Git page is not showing.
+func readReview(ctx context.Context, store *review.Store, root string) gitReading {
+	reading := gitReading{}
+	if reading.store, reading.err = openedStore(ctx, store, root); reading.err != nil {
 		return reading
 	}
-	if !request.full {
+	reading.listing, reading.err = reading.store.Changes(ctx)
+	return reading
+}
+
+// readGitPage lists the changes and reads the branch the work tree is on and
+// the branches to compare with.
+func readGitPage(ctx context.Context, store *review.Store, root string, request compareRequest) gitReading {
+	reading := gitReading{}
+	if reading.store, reading.err = openedStore(ctx, store, root); reading.err != nil {
+		return reading
+	}
+	if reading.listing, reading.err = listChanges(ctx, reading.store, root, request); reading.err != nil {
 		return reading
 	}
 	if reading.head, reading.err = review.ReadHead(ctx, root); reading.err != nil {
@@ -307,6 +317,15 @@ func readGitPage(ctx context.Context, store *review.Store, root string, request 
 	}
 	reading.branches, reading.err = review.Branches(ctx, root)
 	return reading
+}
+
+// openedStore returns store, or opens the project's review when there is none
+// yet.
+func openedStore(ctx context.Context, store *review.Store, root string) (*review.Store, error) {
+	if store != nil {
+		return store, nil
+	}
+	return review.Open(ctx, root)
 }
 
 // listChanges lists what differs from what the request compares with.
@@ -326,60 +345,18 @@ func listChanges(ctx context.Context, store *review.Store, root string, request 
 	}
 }
 
+// changesListed shows what readGitPage read, unless something made it stale.
 func (a *App) changesListed(ctx context.Context, request compareRequest, reading gitReading) {
-	store := reading.store
-	if ctx.Err() != nil {
-		if store != nil && store != a.review.store {
-			closeStore(store)
-		}
+	if !a.takeListing(ctx, reading) {
 		return
 	}
 	r := &a.review
-	switch {
-	case r.store == nil:
-		r.store = store
-	case store != nil && store != r.store:
-		closeStore(store)
-	}
-	r.running = false
-	if a.startQueuedReviewAction() {
-		return
-	}
-	want := a.changesRequest()
-	if want.full && request != want {
-		// The Git page opened or changed comparison meanwhile.
+	if a.showsChangesPanel() && request != r.request() {
+		// The person chose something else to compare with meanwhile.
 		a.refreshChanges()
 		return
 	}
 	err := reading.err
-	if errors.Is(err, review.ErrNotRepository) {
-		r.notRepository = true
-	} else if err == nil {
-		r.notRepository = false
-	}
-	if !request.full {
-		if err != nil {
-			if !r.notRepository {
-				slog.Warn("check unread changes", "root", a.root, "error", err)
-			}
-		} else {
-			r.unread = unreadCount(reading.listing.Changes)
-			if r.compare == compareReview {
-				r.listing = reading.listing
-				r.loaded = true
-				r.failure = ""
-			}
-		}
-		if r.again {
-			r.again = false
-			if a.windowHidden {
-				r.staleWhileHidden = true
-			} else {
-				a.refreshChanges()
-			}
-		}
-		return
-	}
 	r.loaded = true
 	r.failure = ""
 	if err != nil {
@@ -399,14 +376,79 @@ func (a *App) changesListed(ctx context.Context, request compareRequest, reading
 		// Commits change what the tree shows without touching its files.
 		a.refreshTreeStatus()
 	}
-	if r.again {
-		r.again = false
-		if a.windowHidden {
-			r.staleWhileHidden = true
-		} else {
-			a.refreshChanges()
+	a.listAgainIfAsked()
+}
+
+// reviewListed keeps the unread dot true to what readReview read, and the
+// review's listing too while the Git page compares with the review.
+func (a *App) reviewListed(ctx context.Context, reading gitReading) {
+	if !a.takeListing(ctx, reading) {
+		return
+	}
+	r := &a.review
+	if a.showsChangesPanel() {
+		// The Git page opened meanwhile and needs its full reading.
+		a.refreshChanges()
+		return
+	}
+	if err := reading.err; err != nil {
+		if !r.notRepository {
+			slog.Warn("check unread changes", "root", a.root, "error", err)
+		}
+	} else {
+		r.unread = unreadCount(reading.listing.Changes)
+		if r.compare == compareReview {
+			r.listing = reading.listing
+			r.loaded = true
+			r.failure = ""
 		}
 	}
+	a.listAgainIfAsked()
+}
+
+// takeListing ends a listing and adopts the store it opened. It reports false
+// when the listing no longer counts: the project closed, or a review action
+// queued meanwhile runs first.
+func (a *App) takeListing(ctx context.Context, reading gitReading) bool {
+	store := reading.store
+	if ctx.Err() != nil {
+		if store != nil && store != a.review.store {
+			closeStore(store)
+		}
+		return false
+	}
+	r := &a.review
+	switch {
+	case r.store == nil:
+		r.store = store
+	case store != nil && store != r.store:
+		closeStore(store)
+	}
+	r.running = false
+	if a.startQueuedReviewAction() {
+		return false
+	}
+	if errors.Is(reading.err, review.ErrNotRepository) {
+		r.notRepository = true
+	} else if reading.err == nil {
+		r.notRepository = false
+	}
+	return true
+}
+
+// listAgainIfAsked runs the listing asked for while one ran, or leaves it for
+// when the window shows again.
+func (a *App) listAgainIfAsked() {
+	r := &a.review
+	if !r.again {
+		return
+	}
+	r.again = false
+	if a.windowHidden {
+		r.staleWhileHidden = true
+		return
+	}
+	a.refreshChanges()
 }
 
 // followSelectedChange shows the selected file as it now is, or leaves the diff

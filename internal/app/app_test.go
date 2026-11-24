@@ -1420,6 +1420,18 @@ func gitMarkPixel(t *testing.T, tester *ui.Tester) uint32 {
 	return uint32(uint8(r>>8))<<16 | uint32(uint8(g>>8))<<8 | uint32(uint8(b>>8))
 }
 
+// showSidebarMarkPixel reads the color where the unread dot sits on the button
+// that shows the hidden sidebar.
+func showSidebarMarkPixel(t *testing.T, tester *ui.Tester) uint32 {
+	t.Helper()
+	x := max(panelMargin, controlsGap) + sidebarTabWidth - sidebarMarkInset - sidebarMarkSize/2
+	y := (headerHeight-sidebarTabHeight)/2 + sidebarMarkInset + sidebarMarkSize/2
+	tester.SetScale(1)
+	tester.Frame()
+	r, g, b, _ := tester.Image().At(int(x+0.5), int(y+0.5)).RGBA()
+	return uint32(uint8(r>>8))<<16 | uint32(uint8(g>>8))<<8 | uint32(uint8(b>>8))
+}
+
 // waitForUnread runs what background work hands to the window until the review
 // reports want unread files and has nothing left to do.
 func waitForUnread(t *testing.T, a *App, tester *ui.Tester, posted <-chan func(), want int) {
@@ -1551,6 +1563,44 @@ func TestGitButtonMarkTracksReviewAcrossCompareModes(t *testing.T) {
 	waitForUnread(t, a, tester, posted, 1)
 	if got := gitMarkPixel(t, tester); got != wantDot {
 		t.Errorf("committed agent change under Uncommitted mode did not light the dot: %06x, want %06x", got, wantDot)
+	}
+}
+
+// TestHiddenSidebarKeepsTheUnreadDot hides the sidebar while the Git page
+// compares with a branch: the review is read again for the dot, which then
+// shows on the button that brings the sidebar back.
+func TestHiddenSidebarKeepsTheUnreadDot(t *testing.T) {
+	root := reviewedRepository(t)
+	gitIn(t, root, "branch", "-M", "main")
+	gitIn(t, root, "switch", "--quiet", "-c", "feature")
+	a, tester, posted := openWithPosts(t, root)
+	t.Cleanup(a.stopChanges)
+	a.after = func(_ time.Duration, action func()) { go a.post(action) }
+	tester.Frame()
+	a.beginReview()
+	waitForUnread(t, a, tester, posted, 0)
+	a.showChanges()
+	settleChanges(t, a, tester, posted)
+	if err := tester.Click("Branch"); err != nil {
+		t.Fatal(err)
+	}
+	settleChanges(t, a, tester, posted)
+
+	// The Git page shows the branch comparison, so this write leaves the
+	// review's count alone until the page goes away.
+	writeFile(t, root, "a.go", "package a\n\nfunc Agent() {}\n")
+	a.applyFileEvents([]mygo.FileEvent{{Op: mygo.FileWrite, Path: "a.go"}})
+	followPosts(t, posted, tester, func() bool { return !a.review.queued && !a.review.busy() })
+	if a.review.unread != 0 {
+		t.Fatalf("the branch comparison counted %d unread files", a.review.unread)
+	}
+	bare := showSidebarMarkPixel(t, tester)
+	a.toggleSidebar()
+	waitForUnread(t, a, tester, posted, 1)
+	accent := a.look.palette.accent
+	want := uint32(accent.R)<<16 | uint32(accent.G)<<8 | uint32(accent.B)
+	if got := showSidebarMarkPixel(t, tester); got != want {
+		t.Errorf("the Show Sidebar button's corner is %06x, want the accent %06x; with the sidebar shown it was %06x", got, want, bare)
 	}
 }
 
