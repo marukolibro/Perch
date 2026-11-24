@@ -3077,3 +3077,75 @@ func ShortcutClear() string { return In(i18n.Locale()).ShortcutClear() }
 func (msgs Messages) ShortcutClear() string {
 	return Catalog.Format(msgs.locale, "shortcutClear", nil)
 }
+
+// MenuInstallCLI says "Install 'perch' Command in PATH"
+// in the language the app shows.
+func MenuInstallCLI() string { return In(i18n.Locale()).MenuInstallCLI() }
+
+// MenuInstallCLI says "Install 'perch' Command in PATH"
+// in the language of msgs.
+func (msgs Messages) MenuInstallCLI() string {
+	return Catalog.Format(msgs.locale, "menuInstallCLI", nil)
+}
+
+// MenuUninstallCLI says "Uninstall 'perch' Command from PATH"
+// in the language the app shows.
+func MenuUninstallCLI() string { return In(i18n.Locale()).MenuUninstallCLI() }
+
+// MenuUninstallCLI says "Uninstall 'perch' Command from PATH"
+// in the language of msgs.
+func (msgs Messages) MenuUninstallCLI() string {
+	return Catalog.Format(msgs.locale, "menuUninstallCLI", nil)
+}
+
+// CliInstalled says "Installed 'perch' command"
+// in the language the app shows.
+func CliInstalled() string { return In(i18n.Locale()).CliInstalled() }
+
+// CliInstalled says "Installed 'perch' command"
+// in the language of msgs.
+func (msgs Messages) CliInstalled() string {
+	return Catalog.Format(msgs.locale, "cliInstalled", nil)
+}
+
+// CliInstalledAddPath says "Saved to {path}. Add {dir} to your PATH to run perch from a terminal."
+// in the language the app shows.
+func CliInstalledAddPath(path string, dir string) string {
+	return In(i18n.Locale()).CliInstalledAddPath(path, dir)
+}
+
+// CliInstalledAddPath says "Saved to {path}. Add {dir} to your PATH to run perch from a terminal."
+// in the language of msgs.
+func (msgs Messages) CliInstalledAddPath(path string, dir string) string {
+	return Catalog.Format(msgs.locale, "cliInstalledAddPath", map[string]any{"path": path, "dir": dir})
+}
+
+// CliUninstalled says "Removed 'perch' command"
+// in the language the app shows.
+func CliUninstalled() string { return In(i18n.Locale()).CliUninstalled() }
+
+// CliUninstalled says "Removed 'perch' command"
+// in the language of msgs.
+func (msgs Messages) CliUninstalled() string {
+	return Catalog.Format(msgs.locale, "cliUninstalled", nil)
+}
+
+// CliInstallFailed says "Could not install 'perch' command"
+// in the language the app shows.
+func CliInstallFailed() string { return In(i18n.Locale()).CliInstallFailed() }
+
+// CliInstallFailed says "Could not install 'perch' command"
+// in the language of msgs.
+func (msgs Messages) CliInstallFailed() string {
+	return Catalog.Format(msgs.locale, "cliInstallFailed", nil)
+}
+
+// CliUninstallFailed says "Could not remove 'perch' command"
+// in the language the app shows.
+func CliUninstallFailed() string { return In(i18n.Locale()).CliUninstallFailed() }
+
+// CliUninstallFailed says "Could not remove 'perch' command"
+// in the language of msgs.
+func (msgs Messages) CliUninstallFailed() string {
+	return Catalog.Format(msgs.locale, "cliUninstallFailed", nil)
+}

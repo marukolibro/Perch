@@ -1090,15 +1090,21 @@ func TestFindBarOpensOverMarkdownSource(t *testing.T) {
 func TestLaterLaunchesNameFoldersFromTheirOwnDirectory(t *testing.T) {
 	root := t.TempDir()
 	work := filepath.Join(root, "work")
+	beta := filepath.Join(work, "beta")
 	other := filepath.Join(root, "other", "beta")
-	if got := folderArgument([]string{"beta"}, work); got != filepath.Join(work, "beta") {
-		t.Errorf("relative folder became %q", got)
+	for _, dir := range []string{beta, other} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if got := folderArgument([]string{other}, work); got != other {
-		t.Errorf("absolute folder became %q", got)
+	if got := parseLaunchArgs([]string{"beta"}, work); len(got) != 1 || got[0].path != beta || !got[0].isDir {
+		t.Errorf("relative folder became %+v", got)
 	}
-	if got := folderArgument(nil, work); got != "" {
-		t.Errorf("no argument became %q", got)
+	if got := parseLaunchArgs([]string{other}, work); len(got) != 1 || got[0].path != other || !got[0].isDir {
+		t.Errorf("absolute folder became %+v", got)
+	}
+	if got := parseLaunchArgs(nil, work); len(got) != 0 {
+		t.Errorf("no argument became %+v", got)
 	}
 }
 

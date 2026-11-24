@@ -42,6 +42,9 @@ type sessionState struct {
 	// restoreDone ends the goroutine reading a session's files.
 	restoreDone chan struct{}
 	restoring   bool
+	// preserveActive keeps an explicitly opened tab (for example from the CLI)
+	// active when an asynchronous session restore finishes.
+	preserveActive bool
 	// hash is the state last looked at, and saveID the last delay scheduled.
 	hash   uint64
 	saveID uint64
@@ -131,6 +134,7 @@ func (a *App) prepareSessionForFolder() {
 	a.session.saveID++
 	a.cancelSessionRestore()
 	a.session.restoring = false
+	a.session.preserveActive = false
 	a.session.hash = ^uint64(0)
 	a.session.closed = false
 }
@@ -300,7 +304,7 @@ func (a *App) addRestoredRaster(id uint64, tab session.Tab, file rasterFile) *do
 
 // activateRestored shows the tab a restore restored as active.
 func (a *App) activateRestored(id uint64, d *document) {
-	if id != a.session.restoreID || d == nil {
+	if id != a.session.restoreID || d == nil || a.session.preserveActive {
 		return
 	}
 	if index := slices.Index(a.documents, d); index != noDocument {
@@ -343,10 +347,11 @@ func (a *App) sessionRestored(id uint64, activeRead bool) {
 	if id != a.session.restoreID {
 		return
 	}
-	if !activeRead && len(a.documents) > 0 {
+	if !activeRead && !a.session.preserveActive && len(a.documents) > 0 {
 		a.active = len(a.documents) - 1
 	}
 	a.session.restoring = false
+	a.session.preserveActive = false
 	a.session.restoreDone = nil
 }
 

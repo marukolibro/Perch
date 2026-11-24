@@ -47,6 +47,20 @@ xattr -dr com.apple.quarantine /Applications/Perch.app
 
 Perch is developed and tested on macOS. The Windows and Linux builds compile and pass the tests, but have not been tried on those systems yet. Reports from either are welcome.
 
+### Command line (`perch`)
+
+Choose **Perch → Install 'perch' Command in PATH** to add the `perch` launcher to your shell (and uninstall it from the same menu later). Then open folders, files, or exact lines from a terminal:
+
+```sh
+perch .                              # Open the current folder
+perch internal/app/view.go           # Open a file
+perch internal/app/view.go:120       # Open a file at line 120
+perch internal/app/view.go:120:5     # Open a file at line 120, column 5
+perch a.go:10 b.go:20                # Open multiple targets at once
+```
+
+If a file belongs to a window that is already open, Perch reuses that window; otherwise it opens the enclosing Git repository (or the file's folder).
+
 ## Review what changed
 
 <p align="center">

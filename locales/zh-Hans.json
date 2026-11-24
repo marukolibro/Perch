@@ -301,5 +301,12 @@
   "shortcutNeedsModifier": "请选择按键，并搭配 Shift 以外的修饰键，或直接使用 F1–F12。",
   "shortcutConflict": "“{action}”已使用此快捷键。",
   "shortcutDefault": "恢复默认",
-  "shortcutClear": "清除"
+  "shortcutClear": "清除",
+  "menuInstallCLI": "安装 'perch' 命令到 PATH",
+  "menuUninstallCLI": "从 PATH 卸载 'perch' 命令",
+  "cliInstalled": "已安装 'perch' 命令",
+  "cliInstalledAddPath": "已写入 {path}。请将 {dir} 加入 PATH 后在终端使用 perch。",
+  "cliUninstalled": "已卸载 'perch' 命令",
+  "cliInstallFailed": "无法安装 'perch' 命令",
+  "cliUninstallFailed": "无法卸载 'perch' 命令"
 }

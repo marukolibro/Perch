@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -39,11 +40,19 @@ type Desktop struct {
 	recentFile   string
 	recent       []string
 	sessionDir   string
+	cliBusy      bool
+	// newAppWindow creates and shows a window for root; tests replace it.
+	newAppWindow func(root string) *App
+	// focusWindow brings the app and window to the front; tests replace it.
+	focusWindow func(a *App)
 }
 
 // NewDesktop returns a desktop with no windows.
 func NewDesktop() *Desktop {
-	return &Desktop{settings: settings.Default()}
+	d := &Desktop{settings: settings.Default()}
+	d.newAppWindow = d.openNativeWindow
+	d.focusWindow = bringWindowToFront
+	return d
 }
 
 // windowPlacement is where a new window opens. The state remembered under
@@ -54,14 +63,15 @@ type windowPlacement struct {
 	stateKey string
 }
 
-// Start opens the first window, with the folder named by args, the command
-// line after the program's name, and takes the folders of later launches.
+// Start opens the first window with the targets named by args, the command line
+// after the program's name, and takes later launches.
 func (d *Desktop) Start(args []string) {
 	loadErr := d.loadSettings()
 	mygo.App.SetMenu(d.menu())
 	mygo.App.OnSecondInstance(d.openLaunch)
 	mygo.App.OnLocaleChanged(func(string) { mygo.App.SetMenu(d.menu()) })
-	d.openWindow(folderArgument(args, ""))
+	workingDir, _ := os.Getwd()
+	d.openArgs(args, workingDir)
 	if loadErr != nil {
 		d.reportSettingsFailure(locales.SettingsReadFailed(), loadErr)
 	}
@@ -129,33 +139,95 @@ func (d *Desktop) reportSettingsFailure(title string, err error) {
 	}
 }
 
-// folderArgument returns the folder that args name, relative to workingDir, or
-// nothing.
-func folderArgument(args []string, workingDir string) string {
-	if len(args) == 0 {
-		return ""
-	}
-	if filepath.IsAbs(args[0]) || workingDir == "" {
-		return args[0]
-	}
-	return filepath.Join(workingDir, args[0])
+// openLaunch answers another launch of Perch: its folders and files open, and a
+// launch without arguments brings the current window forward (or opens one when
+// none exist).
+func (d *Desktop) openLaunch(args []string, workingDir string) {
+	d.openArgs(args, workingDir)
 }
 
-// openLaunch answers another launch of Perch: its folder opens, and a launch
-// without one brings the last window forward.
-func (d *Desktop) openLaunch(args []string, workingDir string) {
-	folder := folderArgument(args, workingDir)
-	if folder != "" {
-		d.openFolder(nil, folder)
+// openArgs handles command-line targets for both initial and subsequent
+// launches.
+func (d *Desktop) openArgs(args []string, workingDir string) {
+	targets := parseLaunchArgs(args, workingDir)
+	if len(targets) == 0 {
+		a := d.currentApp(nil)
+		if a == nil {
+			a = d.openWindow("")
+		}
+		d.bringToFront(a)
 		return
 	}
-	if a := d.currentApp(nil); a != nil {
-		a.window.Focus()
+
+	var lastApp *App
+	var lastFailure toast
+	for _, target := range targets {
+		if target.err != nil {
+			lastFailure = openFailure(target.path, target.err)
+			continue
+		}
+		if target.isDir {
+			if a := d.openFolderWindow(nil, target.path); a != nil {
+				lastApp = a
+			}
+			continue
+		}
+		if a := d.openFileTarget(target); a != nil {
+			lastApp = a
+		}
 	}
+
+	if len(d.windows) == 0 {
+		lastApp = d.openWindow("")
+	}
+	if lastApp == nil {
+		lastApp = d.currentApp(nil)
+	}
+	if lastFailure != (toast{}) && lastApp != nil {
+		lastApp.tell(lastFailure)
+		lastApp.refreshWindow()
+	}
+	d.bringToFront(lastApp)
+}
+
+// openFileTarget opens a file target in the deepest matching open window, or
+// opens its project root (Git root or parent folder) first.
+func (d *Desktop) openFileTarget(target launchTarget) *App {
+	a, relPath := windowForFile(d.windows, target.path)
+	if a == nil {
+		root := projectRootForFile(target.path)
+		a = d.openFolderWindow(nil, root)
+		if a == nil {
+			return nil
+		}
+		var ok bool
+		relPath, ok = insideProject(a.root, target.path)
+		if !ok {
+			a.dismissOverlaysForOpen()
+			a.openExternalFile(target.path)
+			if doc := a.activeDocument(); doc != nil && doc.path == target.path && target.line > 0 && doc.editor != nil {
+				doc.scrollPending = false
+				pos := positionForLineCol(doc.editor.Buffer, target.line, target.col)
+				doc.reveal(pos, pos)
+			}
+			a.refreshWindow()
+			return a
+		}
+	}
+	a.openFileAtLine(relPath, target.line, target.col)
+	a.refreshWindow()
+	return a
 }
 
 // openWindow opens a window, with the project at root when root is not empty.
-func (d *Desktop) openWindow(root string) {
+func (d *Desktop) openWindow(root string) *App {
+	if d.newAppWindow != nil {
+		return d.newAppWindow(root)
+	}
+	return d.openNativeWindow(root)
+}
+
+func (d *Desktop) openNativeWindow(root string) *App {
 	a := New()
 	a.desktop = d
 	a.setWindowSettings(d.settings)
@@ -166,6 +238,30 @@ func (d *Desktop) openWindow(root string) {
 	a.show(root, d.placementFor(root))
 	a.window.OnClosed(func() { d.windowClosed(a) })
 	d.windows = append(d.windows, a)
+	return a
+}
+
+func (d *Desktop) bringToFront(a *App) {
+	if d.focusWindow != nil {
+		d.focusWindow(a)
+		return
+	}
+	bringWindowToFront(a)
+}
+
+func bringWindowToFront(a *App) {
+	if a == nil || a.window == nil {
+		return
+	}
+	if mygo.App.IsHidden() {
+		mygo.App.Show()
+	}
+	mygo.App.Focus()
+	if a.window.IsMinimized() {
+		a.window.Restore()
+	}
+	a.window.Show()
+	a.window.Focus()
 }
 
 // placementFor sets a new window off from the current one, so that neither
@@ -209,33 +305,46 @@ type folderDestination struct {
 // chooseDestination finds the window for a folder. When neither field is set,
 // the folder gets a new window.
 func chooseDestination(windows []*App, from *App, root string) folderDestination {
-	index := slices.IndexFunc(windows, func(a *App) bool { return a.root == root })
+	index := slices.IndexFunc(windows, func(a *App) bool { return sameFolder(a.root, root) })
 	if index >= 0 {
 		return folderDestination{existing: windows[index]}
 	}
 	if from != nil && from.root == "" {
 		return folderDestination{empty: from}
 	}
+	if from == nil {
+		if emptyIndex := slices.IndexFunc(windows, func(a *App) bool { return a.root == "" }); emptyIndex >= 0 {
+			return folderDestination{empty: windows[emptyIndex]}
+		}
+	}
 	return folderDestination{}
 }
 
-// openFolder shows a folder: in the window that has it, in the empty window it
-// was asked from, or in a new window.
+// openFolder shows a folder: in the window that has it, in an empty window, or
+// in a new window.
 func (d *Desktop) openFolder(from *App, folder string) {
+	d.openFolderWindow(from, folder)
+}
+
+func (d *Desktop) openFolderWindow(from *App, folder string) *App {
 	root, err := filepath.Abs(folder)
 	if err != nil {
 		d.reportOpenFailure(from, err)
-		return
+		return nil
 	}
 	destination := chooseDestination(d.windows, from, root)
 	switch {
 	case destination.existing != nil:
 		d.recordRecent(root)
-		destination.existing.window.Focus()
+		d.bringToFront(destination.existing)
+		return destination.existing
 	case destination.empty != nil:
 		destination.empty.openFolder(root)
+		destination.empty.refreshWindow()
+		d.bringToFront(destination.empty)
+		return destination.empty
 	default:
-		d.openWindow(root)
+		return d.openWindow(root)
 	}
 }
 
@@ -291,6 +400,7 @@ func (d *Desktop) menu() *mygo.Menu {
 			{Role: mygo.RoleAbout},
 			mygo.Separator(),
 			d.menuItem(settingsKeys, (*App).showSettings),
+			d.cliMenuItem(),
 			mygo.Separator(),
 			{Role: mygo.RoleServices},
 			mygo.Separator(),
@@ -351,6 +461,69 @@ func (d *Desktop) menu() *mygo.Menu {
 		}},
 		windowMenu,
 	})
+}
+
+// cliMenuItem builds the menu action to install or remove the perch CLI in
+// PATH, reflecting the current installation state.
+func (d *Desktop) cliMenuItem() *mygo.MenuItem {
+	installed := cliInstalledPath() != ""
+	label := locales.MenuInstallCLI()
+	if installed {
+		label = locales.MenuUninstallCLI()
+	}
+	return &mygo.MenuItem{
+		Label: label,
+		Click: func(_ *mygo.MenuItem, window *mygo.Window) {
+			d.toggleCLIInstall(d.appOf(window), installed)
+		},
+	}
+}
+
+// toggleCLIInstall installs or uninstalls the perch CLI off the main thread so
+// any system authorization dialog does not block the UI.
+func (d *Desktop) toggleCLIInstall(preferred *App, uninstall bool) {
+	if d.cliBusy {
+		return
+	}
+	d.cliBusy = true
+	go func() {
+		var message toast
+		if uninstall {
+			removed, err := uninstallCLI()
+			switch {
+			case errors.Is(err, errCLIInstallCanceled):
+			case err != nil:
+				message = toast{title: locales.CliUninstallFailed(), detail: err.Error()}
+			case removed != "":
+				message = toast{tone: toneInfo, title: locales.CliUninstalled(), detail: removed}
+			}
+		} else {
+			result, err := installCLI()
+			switch {
+			case errors.Is(err, errCLIInstallCanceled):
+			case err != nil:
+				message = toast{title: locales.CliInstallFailed(), detail: err.Error()}
+			case result.inPath:
+				message = toast{tone: toneInfo, title: locales.CliInstalled(), detail: result.path}
+			default:
+				message = toast{
+					tone:   toneInfo,
+					title:  locales.CliInstalled(),
+					detail: locales.CliInstalledAddPath(result.path, filepath.Dir(result.path)),
+				}
+			}
+		}
+		mygo.App.WhenReady(func() {
+			d.cliBusy = false
+			mygo.App.SetMenu(d.menu())
+			if message != (toast{}) {
+				if a := d.currentApp(preferred); a != nil {
+					a.tell(message)
+					a.refreshWindow()
+				}
+			}
+		})
+	}()
 }
 
 // menuItem runs action on the chosen window's app, as an update of that window

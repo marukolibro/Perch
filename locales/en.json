@@ -441,5 +441,12 @@
   "shortcutNeedsModifier": "Choose a key and add a modifier other than Shift, or use F1–F12.",
   "shortcutConflict": "Already used by “{action}”.",
   "shortcutDefault": "Restore Default",
-  "shortcutClear": "Clear"
+  "shortcutClear": "Clear",
+  "menuInstallCLI": "Install 'perch' Command in PATH",
+  "menuUninstallCLI": "Uninstall 'perch' Command from PATH",
+  "cliInstalled": "Installed 'perch' command",
+  "cliInstalledAddPath": "Saved to {path}. Add {dir} to your PATH to run perch from a terminal.",
+  "cliUninstalled": "Removed 'perch' command",
+  "cliInstallFailed": "Could not install 'perch' command",
+  "cliUninstallFailed": "Could not remove 'perch' command"
 }

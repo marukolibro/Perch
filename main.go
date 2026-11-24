@@ -12,6 +12,9 @@ import (
 )
 
 func main() {
+	if app.HandleCLIInfo(os.Args[1:], mygo.App.Version(), os.Stdout) {
+		return
+	}
 	if !mygo.App.RequestSingleInstanceLock() {
 		return
 	}

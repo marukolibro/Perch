@@ -47,6 +47,20 @@ xattr -dr com.apple.quarantine /Applications/Perch.app
 
 Perch 在 macOS 上开发和测试。Windows 和 Linux 版本能编译、测试也能通过，但还没有在这两个系统上实际用过，欢迎反馈。
 
+### 命令行（`perch`）
+
+在菜单栏选择 **Perch → 安装 'perch' 命令到 PATH**（之后也可在同一菜单卸载），即可在终端里打开目录、文件或直接跳到指定行：
+
+```sh
+perch .                              # 打开当前目录
+perch internal/app/view.go           # 打开指定文件
+perch internal/app/view.go:120       # 打开文件并跳到第 120 行
+perch internal/app/view.go:120:5     # 打开文件并跳到第 120 行第 5 列
+perch a.go:10 b.go:20                # 一次打开多个目标
+```
+
+如果文件属于已打开的项目窗口，Perch 会直接切到该窗口打开并跳行；否则会自动查找所在 Git 仓库根目录（或文件所在目录）打开。
+
 ## 审阅改动
 
 <p align="center">

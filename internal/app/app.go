@@ -220,6 +220,9 @@ func (a *App) childPaths(dir string) []string {
 func (a *App) openFile(relPath string) {
 	a.closeOutline()
 	a.leaveGitView()
+	if a.session.restoring {
+		a.session.preserveActive = true
+	}
 	index := slices.IndexFunc(a.documents, func(d *document) bool { return d.path == relPath })
 	if index != noDocument {
 		a.active = index
@@ -262,6 +265,48 @@ func (a *App) openAt(relPath string, start editor.Pos, end editor.Pos) {
 	}
 	a.chooseTab(a.active)
 	d.reveal(start, end)
+}
+
+// openFileAtLine opens a workspace file requested from the CLI, dismissing
+// transient overlays and optionally jumping to a 1-based line and column.
+func (a *App) openFileAtLine(relPath string, line int, col int) {
+	a.dismissOverlaysForOpen()
+	a.openFile(relPath)
+	d := a.activeDocument()
+	if d == nil || d.path != relPath {
+		return
+	}
+	a.chooseTab(a.active)
+	if line > 0 && d.editor != nil {
+		d.scrollPending = false
+		pos := positionForLineCol(d.editor.Buffer, line, col)
+		d.reveal(pos, pos)
+		return
+	}
+	if d.editor != nil && !d.showsPreview() && !d.showsSVGPreview() {
+		d.focus.Focus()
+	}
+}
+
+// dismissOverlaysForOpen clears popovers and modals so a file opened from the
+// CLI is immediately visible.
+func (a *App) dismissOverlaysForOpen() {
+	a.settingsOpen = false
+	a.hideQuickOpen()
+	a.closeOutline()
+	a.closeProjectSymbols()
+	a.closeReferences()
+	if a.pathPopover != nil {
+		*a.pathPopover = false
+	}
+}
+
+// refreshWindow asks the native window to redraw after state changes made on
+// the main thread outside an input event.
+func (a *App) refreshWindow() {
+	if a.window != nil {
+		a.window.Update(func() {})
+	}
 }
 
 func (a *App) activeDocument() *document {

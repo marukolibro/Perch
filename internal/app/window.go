@@ -111,6 +111,9 @@ func (a *App) openFolder(root string) {
 	if a.desktop != nil {
 		a.desktop.recordRecent(a.root)
 	}
+	if a.window == nil {
+		return
+	}
 	a.window.SetTitle(filepath.Base(a.root))
 	ctx, cancel := context.WithCancel(context.Background())
 	a.stopWatch = cancel
