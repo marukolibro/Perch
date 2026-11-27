@@ -391,6 +391,11 @@ func (a *App) panelContentView(c *ui.Context) {
 		a.noFileView(c)
 		return
 	}
+	if a.split.layout != splitNone {
+		a.splitPanesView(c, d)
+		a.statusView(c, d)
+		return
+	}
 	a.pathBarView(c, d)
 	a.conflictView(c, d)
 	a.documentView(c, d)
@@ -421,6 +426,7 @@ func (a *App) tabsView(c *ui.Context) {
 				}
 			})
 		})
+		a.splitButtonsView(c)
 	})
 	if closing != nil {
 		a.requestCloseTab(closing)
@@ -442,13 +448,16 @@ func (a *App) tabView(c *ui.Context, d *document, active bool, index int) bool {
 		a.chooseTab(index)
 	}
 	hovered := tab.Hovered()
+	// The tab of the other pane's document reads as shown, though quieter
+	// than the active one.
+	shown := active || a.split.layout != splitNone && a.split.doc == d
 	tab.Children(func() {
 		icon := a.fileIconView(c, d.path, tabIconSize)
-		if !active {
+		if !shown {
 			icon.Opacity(inactiveTabIconAlpha)
 		}
 		name := ui.Text(c, d.name()).MaxLines(1).Padding(0, 0, tabTextLift, 0)
-		if !active {
+		if !shown {
 			name.TextColor(colors.muted)
 		}
 		closed = a.tabCloseView(c, d, hovered || active)
@@ -564,35 +573,51 @@ func conflictWording(kind conflict) (message string, keep string, drop string) {
 	return locales.ConflictChanged(), locales.KeepMine(), locales.UseDiskVersion()
 }
 
+// documentView shows the active document in the focused pane.
 func (a *App) documentView(c *ui.Context, d *document) {
 	c.Key(d.path)
 	a.followLineBaseline(d)
-	switch {
-	case d.isRasterImage():
-		a.rasterImageView(c, d)
-		return
-	case d.showsSVGPreview():
-		a.svgImageView(c, d)
+	if a.documentPreviewView(c, d, &d.previewScroll) {
+		a.forgetCaretWord()
 		return
 	}
-	if d.showsPreview() {
-		d.markdownOptions.Theme = a.look.markdown
-		ui.Scroll(c).TrackScroll(&d.previewScroll).Grow(1).FillWidth().Padding(readingPadTop, readingPadSide).AlignItems(ui.Center).Children(func() {
-			a.markdownPreviewView(c, d, func(body string) ui.Element { return markdown.View(c, body, d.markdownOptions) })
-		})
-		return
-	}
-	d.editor.Theme = a.look.code
-	a.applyEditorSettings(d.editor)
-	d.editor.NoScrollPastEnd = fitsInView(d.editor)
 	if d.scrollPending && d.editor.ViewportHeight() > 0 {
 		d.editor.SetScrollY(d.restoredScroll)
 		d.scrollPending = false
 	}
-	editor.View(c, d.editor).Bind(&d.focus).Grow(1).FillWidth()
+	a.markCaretWord(d.editor)
+	a.codeView(c, d.editor, &d.focus)
 	if d.scrollPending {
 		c.After(0)
 	}
+}
+
+// documentPreviewView shows an image or rendered Markdown, and reports
+// whether the document shows one rather than its text.
+func (a *App) documentPreviewView(c *ui.Context, d *document, previewScroll *ui.ScrollState) bool {
+	switch {
+	case d.isRasterImage():
+		a.rasterImageView(c, d)
+		return true
+	case d.showsSVGPreview():
+		a.svgImageView(c, d)
+		return true
+	case d.showsPreview():
+		d.markdownOptions.Theme = a.look.markdown
+		ui.Scroll(c).TrackScroll(previewScroll).Grow(1).FillWidth().Padding(readingPadTop, readingPadSide).AlignItems(ui.Center).Children(func() {
+			a.markdownPreviewView(c, d, func(body string) ui.Element { return markdown.View(c, body, d.markdownOptions) })
+		})
+		return true
+	}
+	return false
+}
+
+// codeView shows an editor with the current settings.
+func (a *App) codeView(c *ui.Context, state *editor.State, focus *ui.Handle) {
+	state.Theme = a.look.code
+	a.applyEditorSettings(state)
+	state.NoScrollPastEnd = fitsInView(state)
+	editor.View(c, state).Bind(focus).Grow(1).FillWidth()
 }
 
 func (a *App) statusView(c *ui.Context, d *document) {

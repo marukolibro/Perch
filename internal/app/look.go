@@ -286,6 +286,7 @@ var (
 	iconTree         = ui.MustParseSVG([]byte(`<svg ` + iconAttributes + `><path d="M20 10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2.5a1 1 0 0 1-.8-.4l-.9-1.2A1 1 0 0 0 15 3h-2a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z"/><path d="M20 21a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1h-2.9a1 1 0 0 1-.88-.55l-.42-.85a1 1 0 0 0-.92-.6H13a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z"/><path d="M3 5a2 2 0 0 0 2 2h3"/><path d="M3 3v13a2 2 0 0 0 2 2h3"/></svg>`))
 	iconEyeOff       = ui.MustParseSVG([]byte(`<svg ` + iconAttributes + `><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg>`))
 	iconColumns      = ui.MustParseSVG([]byte(`<svg ` + iconAttributes + `><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/></svg>`))
+	iconRows         = ui.MustParseSVG([]byte(`<svg ` + iconAttributes + `><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 12h18"/></svg>`))
 	iconChevronRight = ui.MustParseSVG([]byte(`<svg ` + iconAttributes + `><path d="m9 18 6-6-6-6"/></svg>`))
 	iconChevronDown  = ui.MustParseSVG([]byte(`<svg ` + iconAttributes + `><path d="m6 9 6 6 6-6"/></svg>`))
 	iconWorktrees    = ui.MustParseSVG([]byte(`<svg ` + iconAttributes + `><circle cx="12" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9v2c0 .6-.4 1-1 1H7c-.6 0-1-.4-1-1V9"/><path d="M12 12v3"/></svg>`))

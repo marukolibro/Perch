@@ -2888,6 +2888,56 @@ func (msgs Messages) MenuRevealInTree() string {
 	return Catalog.Format(msgs.locale, "menuRevealInTree", nil)
 }
 
+// MenuSplitRight says "Split Right"
+// in the language the app shows.
+func MenuSplitRight() string { return In(i18n.Locale()).MenuSplitRight() }
+
+// MenuSplitRight says "Split Right"
+// in the language of msgs.
+func (msgs Messages) MenuSplitRight() string {
+	return Catalog.Format(msgs.locale, "menuSplitRight", nil)
+}
+
+// MenuSplitDown says "Split Down"
+// in the language the app shows.
+func MenuSplitDown() string { return In(i18n.Locale()).MenuSplitDown() }
+
+// MenuSplitDown says "Split Down"
+// in the language of msgs.
+func (msgs Messages) MenuSplitDown() string {
+	return Catalog.Format(msgs.locale, "menuSplitDown", nil)
+}
+
+// CloseSplit says "Close Split"
+// in the language the app shows.
+func CloseSplit() string { return In(i18n.Locale()).CloseSplit() }
+
+// CloseSplit says "Close Split"
+// in the language of msgs.
+func (msgs Messages) CloseSplit() string {
+	return Catalog.Format(msgs.locale, "closeSplit", nil)
+}
+
+// MenuFoldAll says "Fold All Code"
+// in the language the app shows.
+func MenuFoldAll() string { return In(i18n.Locale()).MenuFoldAll() }
+
+// MenuFoldAll says "Fold All Code"
+// in the language of msgs.
+func (msgs Messages) MenuFoldAll() string {
+	return Catalog.Format(msgs.locale, "menuFoldAll", nil)
+}
+
+// MenuUnfoldAll says "Unfold All Code"
+// in the language the app shows.
+func MenuUnfoldAll() string { return In(i18n.Locale()).MenuUnfoldAll() }
+
+// MenuUnfoldAll says "Unfold All Code"
+// in the language of msgs.
+func (msgs Messages) MenuUnfoldAll() string {
+	return Catalog.Format(msgs.locale, "menuUnfoldAll", nil)
+}
+
 // TabCloseOthers says "Close Other Tabs"
 // in the language the app shows.
 func TabCloseOthers() string { return In(i18n.Locale()).TabCloseOthers() }

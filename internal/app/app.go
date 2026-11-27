@@ -93,6 +93,10 @@ type App struct {
 
 	documents []*document
 	active    int
+	// split is the other pane while the panel is split.
+	split splitState
+	// caretWord is where the other places of the word at the caret show.
+	caretWord caretWordState
 	// notice is a failure that stays until it is dismissed.
 	notice toast
 	// brief is a message that goes away by itself.
@@ -189,6 +193,8 @@ func (a *App) loadFolder(root string) error {
 	a.recentFiles = nil
 	a.documents = nil
 	a.active = noDocument
+	a.split = splitState{}
+	a.caretWord = caretWordState{}
 	a.notice = toast{}
 	a.brief = toast{}
 	a.restoreSession()
@@ -390,6 +396,9 @@ func (a *App) closeTabUnrecorded(d *document) {
 	}
 	a.documents = slices.Delete(slices.Clone(a.documents), index, index+1)
 	a.active = activeAfterClose(a.active, index, len(a.documents))
+	if a.active == noDocument {
+		a.closeSplit()
+	}
 	a.treeRow = noRow
 	if d.image != nil {
 		d.image.release()

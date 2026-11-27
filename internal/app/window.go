@@ -69,6 +69,15 @@ func (a *App) runFind(command editor.Command) {
 	d.editor.Run(command)
 }
 
+// runEditorCommand runs an editor command on the active document's text.
+func (a *App) runEditorCommand(command editor.Command) {
+	d := a.activeTextDocument()
+	if d == nil || d.showsPreview() {
+		return
+	}
+	d.editor.Run(command)
+}
+
 func (a *App) toggleMarkdownView() {
 	d := a.activeDocument()
 	if d == nil || !d.isMarkdown() {

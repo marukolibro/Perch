@@ -56,6 +56,10 @@ var (
 	goToLineKeys          = shortcutAction{"goToLine", locales.MenuGoToLine, keyCombo{ui.Ctrl, "G"}}
 	toggleSidebarKeys     = shortcutAction{"toggleSidebar", locales.MenuToggleSidebar, keyCombo{ui.Cmd, "B"}}
 	revealInTreeKeys      = shortcutAction{"revealInTree", locales.MenuRevealInTree, keyCombo{ui.Cmd | ui.Shift, "E"}}
+	splitRightKeys        = shortcutAction{"splitRight", locales.MenuSplitRight, keyCombo{ui.Cmd, "\\"}}
+	splitDownKeys         = shortcutAction{"splitDown", locales.MenuSplitDown, keyCombo{0, ""}}
+	foldAllKeys           = shortcutAction{"foldAll", locales.MenuFoldAll, keyCombo{0, ""}}
+	unfoldAllKeys         = shortcutAction{"unfoldAll", locales.MenuUnfoldAll, keyCombo{0, ""}}
 	zoomInKeys            = shortcutAction{"zoomIn", locales.MenuZoomIn, keyCombo{ui.Cmd, "="}}
 	zoomOutKeys           = shortcutAction{"zoomOut", locales.MenuZoomOut, keyCombo{ui.Cmd, "-"}}
 	resetZoomKeys         = shortcutAction{"resetZoom", locales.MenuResetZoom, keyCombo{ui.Cmd, "0"}}
@@ -82,7 +86,7 @@ var shortcutGroups = []struct {
 	{locales.MenuFile, []shortcutAction{openFolderKeys, goToFileKeys, newWindowKeys, saveKeys, copyLineRefKeys, closeTabKeys, reopenClosedTabKeys, closeWindowKeys}},
 	{locales.MenuFind, []shortcutAction{findInFileKeys, findReplaceKeys, findInFilesKeys}},
 	{locales.MenuGo, []shortcutAction{goToLineKeys, goToSymbolKeys, goToProjectSymbolKeys, goToDefinitionKeys, findReferencesKeys, goBackKeys, goForwardKeys}},
-	{locales.MenuView, []shortcutAction{settingsKeys, toggleSidebarKeys, revealInTreeKeys, toggleMarkdownKeys, collapseAllKeys, zoomInKeys, zoomOutKeys, resetZoomKeys, showChangesKeys, markReviewedKeys, nextChangeKeys, previousChangeKeys}},
+	{locales.MenuView, []shortcutAction{settingsKeys, toggleSidebarKeys, revealInTreeKeys, splitRightKeys, splitDownKeys, toggleMarkdownKeys, collapseAllKeys, foldAllKeys, unfoldAllKeys, zoomInKeys, zoomOutKeys, resetZoomKeys, showChangesKeys, markReviewedKeys, nextChangeKeys, previousChangeKeys}},
 	{locales.ShortcutTabs, append([]shortcutAction{nextTabKeys, previousTabKeys, cycleNextKeys, cyclePreviousKeys}, numberedTabKeys...)},
 }
 

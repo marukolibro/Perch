@@ -336,8 +336,13 @@ func (d *Desktop) menu() *mygo.Menu {
 		{Label: locales.MenuView(), Submenu: []*mygo.MenuItem{
 			d.menuItem(toggleSidebarKeys, (*App).toggleSidebar),
 			d.menuItem(revealInTreeKeys, (*App).revealActiveFile),
+			d.menuItem(splitRightKeys, (*App).splitRight),
+			d.menuItem(splitDownKeys, (*App).splitDown),
 			d.menuItem(toggleMarkdownKeys, (*App).toggleMarkdownView),
 			d.menuItem(collapseAllKeys, (*App).collapseFileTree),
+			mygo.Separator(),
+			d.menuItem(foldAllKeys, func(a *App) { a.runEditorCommand(editor.FoldAll) }),
+			d.menuItem(unfoldAllKeys, func(a *App) { a.runEditorCommand(editor.UnfoldAll) }),
 			mygo.Separator(),
 			d.menuItem(zoomInKeys, func(a *App) { a.changeFontSize(1) }),
 			d.menuItem(zoomOutKeys, func(a *App) { a.changeFontSize(-1) }),

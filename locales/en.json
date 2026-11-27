@@ -416,6 +416,11 @@
     }
   },
   "menuRevealInTree": "Reveal in File Tree",
+  "menuSplitRight": "Split Right",
+  "menuSplitDown": "Split Down",
+  "closeSplit": "Close Split",
+  "menuFoldAll": "Fold All Code",
+  "menuUnfoldAll": "Unfold All Code",
   "tabCloseOthers": "Close Other Tabs",
   "tabCloseRight": "Close Tabs to the Right",
   "tabCloseAll": "Close All Tabs",
