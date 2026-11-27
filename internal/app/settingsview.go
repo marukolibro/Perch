@@ -128,6 +128,31 @@ func (a *App) setWindowSettings(next settings.Settings) {
 	a.settings = next
 }
 
+// toggleDiffLayout switches the diff viewer between unified and side-by-side
+// and persists the choice.
+func (a *App) toggleDiffLayout() {
+	next := a.settings
+	if next.DiffLayout == settings.DiffSplit {
+		next.DiffLayout = settings.DiffUnified
+	} else {
+		next.DiffLayout = settings.DiffSplit
+	}
+	a.updateSettings(next)
+}
+
+// diffLayoutButtonView builds the compact toolbar button that toggles between
+// unified and side-by-side diff layouts.
+func (a *App) diffLayoutButtonView(c *ui.Context) {
+	split := a.settings.DiffLayout == settings.DiffSplit
+	label := locales.SwitchToSplitDiff()
+	if split {
+		label = locales.SwitchToUnifiedDiff()
+	}
+	if a.pathBarButton(c, iconColumns, label, split).Clicked() {
+		a.toggleDiffLayout()
+	}
+}
+
 // codeFont returns the font of code in the current settings.
 func (a *App) codeFont() ui.Font {
 	return ui.Font{Size: float32(a.settings.FontSize)}

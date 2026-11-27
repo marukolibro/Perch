@@ -38,6 +38,8 @@ type RecentSearch struct {
 	Query         string `json:"query"`
 	CaseSensitive bool   `json:"caseSensitive"`
 	Regexp        bool   `json:"regexp"`
+	Include       string `json:"include,omitempty"`
+	Exclude       string `json:"exclude,omitempty"`
 }
 
 // Session is the state of one project.

@@ -49,11 +49,12 @@ type compareRequest struct {
 // gitReading is what one refresh of the Git page, or of the review alone,
 // reads.
 type gitReading struct {
-	store    *review.Store
-	listing  review.Listing
-	head     review.Head
-	branches []string
-	err      error
+	store     *review.Store
+	listing   review.Listing
+	head      review.Head
+	branches  []string
+	worktrees []review.Worktree
+	err       error
 }
 
 // Indexes of the switch of a Markdown file's change.
@@ -86,11 +87,18 @@ type changesPanel struct {
 
 	compare int
 	// branch is the branch compareBranch compares with.
-	branch   string
-	branches []string
-	head     review.Head
+	branch    string
+	branches  []string
+	worktrees []review.Worktree
+	// worktreesOpen controls the popover listing linked worktrees.
+	worktreesOpen bool
+	head          review.Head
 	// split is the share of the page the changes take above the history.
 	split float32
+
+	treeView      bool
+	unreadOnly    bool
+	collapsedDirs map[string]bool
 
 	running bool // a listing or review action is in flight
 	again   bool
@@ -316,6 +324,14 @@ func readGitPage(ctx context.Context, store *review.Store, root string, request 
 		return reading
 	}
 	reading.branches, reading.err = review.Branches(ctx, root)
+	if reading.err != nil {
+		return reading
+	}
+	if worktrees, err := review.Worktrees(ctx, root); err == nil {
+		reading.worktrees = worktrees
+	} else {
+		slog.Warn("list worktrees", "root", root, "error", err)
+	}
 	return reading
 }
 
@@ -366,6 +382,7 @@ func (a *App) changesListed(ctx context.Context, request compareRequest, reading
 		r.listing = reading.listing
 		r.head = reading.head
 		r.branches = reading.branches
+		r.worktrees = reading.worktrees
 		if request.compare == compareReview {
 			r.unread = unreadCount(reading.listing.Changes)
 		}
@@ -910,12 +927,21 @@ func (a *App) changeListView(c *ui.Context) {
 		a.panelMessageView(c, message)
 		return
 	}
-	if r.compare == compareReview {
-		a.changesHeaderView(c)
+	a.changesToolbarView(c)
+	shown := r.visibleChanges()
+	switch {
+	case len(shown) == 0:
+		a.panelMessageView(c, locales.AllFilesReviewed())
+	case r.treeView:
+		rows := buildChangeTreeRows(shown, r.collapsedDirs)
+		ui.List(c, &r.list, len(rows), func(row int) {
+			a.changeTreeRowView(c, rows[row])
+		}).Grow(1).FillWidth().Padding(2, 6)
+	default:
+		ui.List(c, &r.list, len(shown), func(row int) {
+			a.changeRowView(c, shown[row])
+		}).Grow(1).FillWidth().Padding(2, 6)
 	}
-	ui.List(c, &r.list, len(r.listing.Changes), func(row int) {
-		a.changeRowView(c, r.listing.Changes[row])
-	}).Grow(1).FillWidth().Padding(2, 6)
 	if r.compare == compareReview {
 		a.changesFooterView(c)
 	}
@@ -939,15 +965,6 @@ func changesMessage(r *changesPanel) string {
 	default:
 		return locales.NoChanges()
 	}
-}
-
-func (a *App) changesHeaderView(c *ui.Context) {
-	changes := a.review.listing.Changes
-	read := len(changes) - unreadCount(changes)
-	ui.Row(c).FillWidth().Shrink(0).Padding(2, 14, 4, 14).Children(func() {
-		ui.Text(c, locales.ReviewProgress(read, len(changes))).
-			FontSize(smallFontSize - 1).TextColor(a.look.palette.muted)
-	})
 }
 
 func (a *App) changesFooterView(c *ui.Context) {
@@ -1123,6 +1140,9 @@ func (a *App) changeBarView(c *ui.Context, change review.Change) {
 		ui.Spacer(c)
 		if r.preview != nil {
 			ui.Segmented(c, &r.view, locales.ChangeRendered(), locales.ChangeDiff())
+		}
+		if !a.showsRenderedChange() && !r.unreadable {
+			a.diffLayoutButtonView(c)
 		}
 		if change.Kind != review.Deleted && ui.Button(c, locales.OpenFile()).Clicked() {
 			a.openSelectedChange()

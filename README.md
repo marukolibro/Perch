@@ -56,8 +56,8 @@ Perch is developed and tested on macOS. The Windows and Linux builds compile and
   </picture>
 </p>
 
-- **Read up to where you stopped.** The Git page lists the files changed since your last review and shows only what you have not read yet. A renamed file shows as one change. Mark a file reviewed and it stays reviewed until it changes again.
-- **Compare with anything.** Switch between your last review, uncommitted changes and another branch.
+- **Read up to where you stopped.** The Git page lists the files changed since your last review as a flat list or a compacted directory tree, lets you hide reviewed files or mark whole folders reviewed, and shows only what you have not read yet. A renamed file shows as one change. Mark a file reviewed and it stays reviewed until it changes again.
+- **Compare with anything.** Switch between your last review, uncommitted changes and another branch, toggle unified or side-by-side diffs from the bar, and jump between linked Git worktrees in separate windows.
 - **See the history.** Browse commits and open any commit's changes. The file tree marks changed files. Each file has its own history, and resting the pointer on a line shows who last changed it.
 - **Unread lines in the editor.** While you read a file, the lines you have not reviewed are marked beside the line numbers as they are written.
 - **Know without looking.** While you read elsewhere, a quiet dot on the Git button says an agent has left files for you to read. It goes once you have reviewed them.
@@ -67,7 +67,7 @@ Reviews are kept as Git trees under `refs/perch/`, so they cost nothing in your 
 ## Read and find your way
 
 - Syntax highlighting, rendered Markdown including the HTML in READMEs, and previews of PNG, JPEG, GIF, WebP and SVG.
-- Quick open (`⌘P`, also `file:line`), project search with recent queries, and find and replace.
+- Quick open (`⌘P`, also `file:line`), go to line (`⌃G`), project search with include/exclude path filters and recent queries, and find and replace.
 - Through language servers: go to definition, find references, symbols in the file or the project, the type and documentation of the name under the pointer, and the path bar's symbol path.
 - Each project reopens with its tabs, caret, scroll position and layout, in its own window.
 - English and Simplified Chinese, light and dark.

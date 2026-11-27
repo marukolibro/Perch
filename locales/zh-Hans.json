@@ -301,5 +301,19 @@
   "shortcutNeedsModifier": "请选择按键，并搭配 Shift 以外的修饰键，或直接使用 F1–F12。",
   "shortcutConflict": "“{action}”已使用此快捷键。",
   "shortcutDefault": "恢复默认",
-  "shortcutClear": "清除"
+  "shortcutClear": "清除",
+  "changeViewTree": "以目录树显示",
+  "changeViewFlat": "以列表显示",
+  "hideReviewed": "隐藏已审文件",
+  "allFilesReviewed": "所有文件都已审阅。",
+  "markFolderReviewed": "将 {path} 标为已审",
+  "markFolderUnread": "将 {path} 标为未审",
+  "switchToSplitDiff": "切换为左右对比",
+  "switchToUnifiedDiff": "切换为单栏对比",
+  "filterFiles": "按路径过滤",
+  "includeFilesPlaceholder": "包含路径（如 internal/app, *.go）",
+  "excludeFilesPlaceholder": "排除路径（如 *_test.go, docs/）",
+  "invalidPathFilter": "路径过滤格式无效",
+  "worktreesLabel": "工作树",
+  "currentWorktree": "当前"
 }

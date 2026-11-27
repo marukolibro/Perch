@@ -441,5 +441,19 @@
   "shortcutNeedsModifier": "Choose a key and add a modifier other than Shift, or use F1–F12.",
   "shortcutConflict": "Already used by “{action}”.",
   "shortcutDefault": "Restore Default",
-  "shortcutClear": "Clear"
+  "shortcutClear": "Clear",
+  "changeViewTree": "Show as Tree",
+  "changeViewFlat": "Show as List",
+  "hideReviewed": "Hide Reviewed",
+  "allFilesReviewed": "All files reviewed.",
+  "markFolderReviewed": "Mark {path} reviewed",
+  "markFolderUnread": "Mark {path} unread",
+  "switchToSplitDiff": "Show Side by Side",
+  "switchToUnifiedDiff": "Show Unified",
+  "filterFiles": "Filter files",
+  "includeFilesPlaceholder": "Include (e.g. internal/app, *.go)",
+  "excludeFilesPlaceholder": "Exclude (e.g. *_test.go, docs/)",
+  "invalidPathFilter": "Invalid path filter",
+  "worktreesLabel": "Worktrees",
+  "currentWorktree": "Current"
 }

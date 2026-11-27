@@ -82,7 +82,92 @@ func (a *App) headView(c *ui.Context) {
 		if head.Uncommitted > 0 {
 			ui.Text(c, locales.UncommittedCount(head.Uncommitted)).FontSize(smallFontSize - 1).TextColor(colors.muted).Shrink(0)
 		}
+		if len(a.review.worktrees) > 1 {
+			a.worktreesButtonView(c)
+		}
 	})
+}
+
+const worktreeListWidth float32 = 280
+
+func (a *App) worktreesButtonView(c *ui.Context) {
+	colors := a.look.palette
+	r := &a.review
+	button := ui.ButtonBase(c).Height(22).Padding(0, 6).Gap(4).Radius(radiusSmall).AlignItems(ui.Center).
+		Label(locales.WorktreesLabel()).Tooltip(locales.WorktreesLabel()).Shrink(0)
+	tint := colors.muted
+	switch {
+	case r.worktreesOpen:
+		button.Background(colors.accent.Alpha(0.14))
+		tint = colors.accent
+	case button.Hovered():
+		button.Background(colors.hover)
+		tint = colors.text
+	}
+	if button.Clicked() {
+		r.worktreesOpen = !r.worktreesOpen
+	}
+	button.Children(func() {
+		ui.Icon(c, iconWorktrees).FontSize(smallFontSize).TextColor(tint)
+		ui.Text(c, fmt.Sprint(len(r.worktrees))).FontSize(smallFontSize - 1).TextColor(tint)
+	})
+	ui.Popover(c, button, &r.worktreesOpen, func() {
+		a.worktreesListView(c)
+	})
+}
+
+func (a *App) worktreesListView(c *ui.Context) {
+	colors := a.look.palette
+	r := &a.review
+	ui.Column(c).Width(worktreeListWidth).Gap(2).Children(func() {
+		ui.Text(c, locales.WorktreesLabel()).FontSize(smallFontSize-1).FontWeight(600).
+			TextColor(colors.muted).Padding(2, 8, 4, 8)
+		for _, wt := range r.worktrees {
+			a.worktreeRowView(c, wt)
+		}
+	})
+}
+
+func (a *App) worktreeRowView(c *ui.Context, wt review.Worktree) {
+	colors := a.look.palette
+	title := wt.Branch
+	if title == "" {
+		title = locales.DetachedAt(wt.Head)
+	}
+	row := ui.ButtonBase(c.Key(wt.Path)).FillWidth().Padding(6, 8).Radius(radiusControl).
+		Justify(ui.Start).AlignItems(ui.Center).Label(title)
+	switch {
+	case wt.Current:
+		row.Background(colors.accent.Alpha(0.1))
+	case row.Hovered():
+		row.Background(colors.hover)
+	}
+	if row.Clicked() {
+		a.review.worktreesOpen = false
+		if !wt.Current {
+			a.openWorktree(wt.Path)
+		}
+	}
+	row.Children(func() {
+		ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(2).Children(func() {
+			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, title).FontSize(smallFontSize).FontWeight(600).MaxLines(1).Shrink(1)
+				if wt.Current {
+					ui.Spacer(c)
+					ui.Text(c, locales.CurrentWorktree()).FontSize(refChipFontSize).TextColor(colors.accent).Shrink(0)
+				}
+			})
+			ui.Text(c, shortenProjectPath(wt.Path)).FontSize(smallFontSize - 1).TextColor(colors.muted).MaxLines(1)
+		})
+	})
+}
+
+func (a *App) openWorktree(path string) {
+	if a.desktop != nil {
+		a.desktop.openFolder(a, path)
+		return
+	}
+	a.openFolder(path)
 }
 
 // compareView chooses what the work tree is compared with.
@@ -446,6 +531,9 @@ func (a *App) commitHeaderView(c *ui.Context, commit review.Commit) {
 	ui.Column(c).FillWidth().Shrink(0).Gap(6).Padding(12, 16, 10, 16).Children(func() {
 		ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, commit.Subject).FontWeight(600).MaxLines(2).Grow(1).Shrink(1)
+			if a.history.diff != nil && !a.history.unreadable {
+				a.diffLayoutButtonView(c)
+			}
 			if ui.Button(c, locales.CloseCommit()).Clicked() {
 				a.closeCommit()
 			}

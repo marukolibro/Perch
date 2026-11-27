@@ -47,6 +47,9 @@ type findInFiles struct {
 	query         string
 	caseSensitive bool
 	regexp        bool
+	include       string
+	exclude       string
+	showFilters   bool
 	recent        []session.RecentSearch
 	rows          []resultRow
 	summary       search.Summary
@@ -56,6 +59,8 @@ type findInFiles struct {
 	chosen        int
 	list          ui.ListState
 	input         ui.Handle
+	includeInput  ui.Handle
+	excludeInput  ui.Handle
 	cancel        context.CancelFunc
 }
 
@@ -104,16 +109,21 @@ func (a *App) startSearch() {
 		a.find.failure = locales.InvalidRegexp()
 		return
 	}
+	filter, err := search.PathFilter{Include: a.find.include, Exclude: a.find.exclude}.Compile()
+	if err != nil {
+		a.find.failure = locales.InvalidPathFilter()
+		return
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	a.find.cancel = cancel
 	a.find.running = true
-	go a.runSearch(ctx, a.root, pattern)
+	go a.runSearch(ctx, a.root, pattern, filter)
 }
 
 // runSearch waits for typing to pause and streams the results to the window.
 // The goroutine belongs to ctx: the next search and opening another folder
 // cancel it.
-func (a *App) runSearch(ctx context.Context, root string, pattern *search.Pattern) {
+func (a *App) runSearch(ctx context.Context, root string, pattern *search.Pattern, filter *search.CompiledFilter) {
 	select {
 	case <-time.After(searchDelay):
 	case <-ctx.Done():
@@ -124,9 +134,10 @@ func (a *App) runSearch(ctx context.Context, root string, pattern *search.Patter
 		a.finishSearch(ctx, search.Summary{}, err)
 		return
 	}
+	paths := search.FilterPaths(listing.Paths, filter)
 	var pending []resultRow
 	flushed := time.Now()
-	summary, err := search.Text(ctx, root, listing.Paths, pattern, func(hits search.FileHits) {
+	summary, err := search.Text(ctx, root, paths, pattern, func(hits search.FileHits) {
 		pending = append(pending, rowsOf(hits)...)
 		if time.Since(flushed) >= searchFlushInterval {
 			a.addSearchRows(ctx, pending)
@@ -141,14 +152,18 @@ func (a *App) runSearch(ctx context.Context, root string, pattern *search.Patter
 // rememberSearch puts the query whose result was opened first among the
 // recent searches, with its options, keeping one of each query. Opening a
 // result is what tells a finished query from one typed on the way to it.
-func (a *App) rememberSearch(query search.Query) {
+func (a *App) rememberSearch(query search.Query, filter search.PathFilter) {
 	recent := a.find.recent
 	if i := slices.IndexFunc(recent, func(previous session.RecentSearch) bool { return previous.Query == query.Text }); i >= 0 {
 		recent = slices.Delete(recent, i, i+1)
 	}
 	recent = recent[:min(len(recent), maxRecentSearches-1)]
 	a.find.recent = slices.Insert(recent, 0, session.RecentSearch{
-		Query: query.Text, CaseSensitive: query.CaseSensitive, Regexp: query.Regexp,
+		Query:         query.Text,
+		CaseSensitive: query.CaseSensitive,
+		Regexp:        query.Regexp,
+		Include:       strings.TrimSpace(filter.Include),
+		Exclude:       strings.TrimSpace(filter.Exclude),
 	})
 }
 
@@ -215,7 +230,10 @@ func (a *App) openSearchRow(index int) {
 		return
 	}
 	row := a.find.rows[index]
-	a.rememberSearch(search.Query{Text: a.find.query, CaseSensitive: a.find.caseSensitive, Regexp: a.find.regexp})
+	a.rememberSearch(
+		search.Query{Text: a.find.query, CaseSensitive: a.find.caseSensitive, Regexp: a.find.regexp},
+		search.PathFilter{Include: a.find.include, Exclude: a.find.exclude},
+	)
 	if row.isFile {
 		a.openFile(row.path)
 		a.chooseTab(a.active)
@@ -232,6 +250,9 @@ func (a *App) findInFilesView(c *ui.Context) {
 	ui.Column(c).Grow(1).FillWidth().Children(func() {
 		ui.Column(c).FillWidth().Shrink(0).Gap(6).Padding(4, 10, 8, 10).Children(func() {
 			a.searchFieldView(c)
+			if a.find.showFilters {
+				a.searchFilterFieldsView(c)
+			}
 			if status := searchStatus(&a.find); status != "" {
 				ui.Text(c, status).FontSize(smallFontSize-1).TextColor(colors.muted).MaxLines(1).Padding(0, 2)
 			}
@@ -261,6 +282,11 @@ func (a *App) searchEmptyView(c *ui.Context) {
 						a.find.query = recent.Query
 						a.find.caseSensitive = recent.CaseSensitive
 						a.find.regexp = recent.Regexp
+						a.find.include = recent.Include
+						a.find.exclude = recent.Exclude
+						if recent.Include != "" || recent.Exclude != "" {
+							a.find.showFilters = true
+						}
 						a.find.input.Focus()
 						a.startSearch()
 					}
@@ -313,6 +339,51 @@ func (a *App) searchFieldView(c *ui.Context) {
 		}
 		a.searchOption(c, &a.find.caseSensitive, "Aa", locales.MatchCase())
 		a.searchOption(c, &a.find.regexp, ".*", locales.RegularExpression())
+		a.searchFilterToggle(c)
+	})
+}
+
+func (a *App) searchFilterToggle(c *ui.Context) {
+	colors := a.look.palette
+	active := a.find.showFilters || !search.PathFilter{Include: a.find.include, Exclude: a.find.exclude}.Empty()
+	button := ui.Box(c).Size(searchOptionSize, searchOptionSize).Center().Radius(radiusSmall).Shrink(0).
+		Label(locales.FilterFiles()).Tooltip(locales.FilterFiles())
+	tint := colors.muted
+	switch {
+	case active:
+		button.Background(colors.accent.Alpha(0.16))
+		tint = colors.accent
+	case button.Hovered():
+		button.Background(colors.hover)
+	}
+	if button.Clicked() {
+		a.find.showFilters = !a.find.showFilters
+	}
+	button.Children(func() { ui.Icon(c, iconFilter).FontSize(12).TextColor(tint) })
+}
+
+func (a *App) searchFilterFieldsView(c *ui.Context) {
+	a.searchFilterInput(c, &a.find.include, &a.find.includeInput, locales.IncludeFilesPlaceholder())
+	a.searchFilterInput(c, &a.find.exclude, &a.find.excludeInput, locales.ExcludeFilesPlaceholder())
+}
+
+func (a *App) searchFilterInput(c *ui.Context, value *string, handle *ui.Handle, placeholder string) {
+	colors := a.look.palette
+	box := ui.Row(c).FillWidth().Height(searchFieldHeight-4).Shrink(0).Padding(0, 8).
+		AlignItems(ui.Center).Radius(radiusControl).Background(colors.sidebar)
+	edge := colors.border
+	if box.FocusWithin() {
+		edge = colors.accent
+	}
+	box.Border(1, edge).Children(func() {
+		field := ui.TextInputBase(c, value).Bind(handle).Grow(1).Shrink(1).MinWidth(0).
+			FontSize(smallFontSize).Placeholder(placeholder).Label(placeholder)
+		if field.Changed() {
+			a.startSearch()
+		}
+		if field.Submitted() {
+			a.openSearchRow(a.find.chosen)
+		}
 	})
 }
 

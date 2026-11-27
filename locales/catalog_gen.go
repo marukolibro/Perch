@@ -3077,3 +3077,143 @@ func ShortcutClear() string { return In(i18n.Locale()).ShortcutClear() }
 func (msgs Messages) ShortcutClear() string {
 	return Catalog.Format(msgs.locale, "shortcutClear", nil)
 }
+
+// ChangeViewTree says "Show as Tree"
+// in the language the app shows.
+func ChangeViewTree() string { return In(i18n.Locale()).ChangeViewTree() }
+
+// ChangeViewTree says "Show as Tree"
+// in the language of msgs.
+func (msgs Messages) ChangeViewTree() string {
+	return Catalog.Format(msgs.locale, "changeViewTree", nil)
+}
+
+// ChangeViewFlat says "Show as List"
+// in the language the app shows.
+func ChangeViewFlat() string { return In(i18n.Locale()).ChangeViewFlat() }
+
+// ChangeViewFlat says "Show as List"
+// in the language of msgs.
+func (msgs Messages) ChangeViewFlat() string {
+	return Catalog.Format(msgs.locale, "changeViewFlat", nil)
+}
+
+// HideReviewed says "Hide Reviewed"
+// in the language the app shows.
+func HideReviewed() string { return In(i18n.Locale()).HideReviewed() }
+
+// HideReviewed says "Hide Reviewed"
+// in the language of msgs.
+func (msgs Messages) HideReviewed() string {
+	return Catalog.Format(msgs.locale, "hideReviewed", nil)
+}
+
+// AllFilesReviewed says "All files reviewed."
+// in the language the app shows.
+func AllFilesReviewed() string { return In(i18n.Locale()).AllFilesReviewed() }
+
+// AllFilesReviewed says "All files reviewed."
+// in the language of msgs.
+func (msgs Messages) AllFilesReviewed() string {
+	return Catalog.Format(msgs.locale, "allFilesReviewed", nil)
+}
+
+// MarkFolderReviewed says "Mark {path} reviewed"
+// in the language the app shows.
+func MarkFolderReviewed(path string) string { return In(i18n.Locale()).MarkFolderReviewed(path) }
+
+// MarkFolderReviewed says "Mark {path} reviewed"
+// in the language of msgs.
+func (msgs Messages) MarkFolderReviewed(path string) string {
+	return Catalog.Format(msgs.locale, "markFolderReviewed", map[string]any{"path": path})
+}
+
+// MarkFolderUnread says "Mark {path} unread"
+// in the language the app shows.
+func MarkFolderUnread(path string) string { return In(i18n.Locale()).MarkFolderUnread(path) }
+
+// MarkFolderUnread says "Mark {path} unread"
+// in the language of msgs.
+func (msgs Messages) MarkFolderUnread(path string) string {
+	return Catalog.Format(msgs.locale, "markFolderUnread", map[string]any{"path": path})
+}
+
+// SwitchToSplitDiff says "Show Side by Side"
+// in the language the app shows.
+func SwitchToSplitDiff() string { return In(i18n.Locale()).SwitchToSplitDiff() }
+
+// SwitchToSplitDiff says "Show Side by Side"
+// in the language of msgs.
+func (msgs Messages) SwitchToSplitDiff() string {
+	return Catalog.Format(msgs.locale, "switchToSplitDiff", nil)
+}
+
+// SwitchToUnifiedDiff says "Show Unified"
+// in the language the app shows.
+func SwitchToUnifiedDiff() string { return In(i18n.Locale()).SwitchToUnifiedDiff() }
+
+// SwitchToUnifiedDiff says "Show Unified"
+// in the language of msgs.
+func (msgs Messages) SwitchToUnifiedDiff() string {
+	return Catalog.Format(msgs.locale, "switchToUnifiedDiff", nil)
+}
+
+// FilterFiles says "Filter files"
+// in the language the app shows.
+func FilterFiles() string { return In(i18n.Locale()).FilterFiles() }
+
+// FilterFiles says "Filter files"
+// in the language of msgs.
+func (msgs Messages) FilterFiles() string {
+	return Catalog.Format(msgs.locale, "filterFiles", nil)
+}
+
+// IncludeFilesPlaceholder says "Include (e.g. internal/app, *.go)"
+// in the language the app shows.
+func IncludeFilesPlaceholder() string { return In(i18n.Locale()).IncludeFilesPlaceholder() }
+
+// IncludeFilesPlaceholder says "Include (e.g. internal/app, *.go)"
+// in the language of msgs.
+func (msgs Messages) IncludeFilesPlaceholder() string {
+	return Catalog.Format(msgs.locale, "includeFilesPlaceholder", nil)
+}
+
+// ExcludeFilesPlaceholder says "Exclude (e.g. *_test.go, docs/)"
+// in the language the app shows.
+func ExcludeFilesPlaceholder() string { return In(i18n.Locale()).ExcludeFilesPlaceholder() }
+
+// ExcludeFilesPlaceholder says "Exclude (e.g. *_test.go, docs/)"
+// in the language of msgs.
+func (msgs Messages) ExcludeFilesPlaceholder() string {
+	return Catalog.Format(msgs.locale, "excludeFilesPlaceholder", nil)
+}
+
+// InvalidPathFilter says "Invalid path filter"
+// in the language the app shows.
+func InvalidPathFilter() string { return In(i18n.Locale()).InvalidPathFilter() }
+
+// InvalidPathFilter says "Invalid path filter"
+// in the language of msgs.
+func (msgs Messages) InvalidPathFilter() string {
+	return Catalog.Format(msgs.locale, "invalidPathFilter", nil)
+}
+
+// WorktreesLabel says "Worktrees"
+// in the language the app shows.
+func WorktreesLabel() string { return In(i18n.Locale()).WorktreesLabel() }
+
+// WorktreesLabel says "Worktrees"
+// in the language of msgs.
+func (msgs Messages) WorktreesLabel() string {
+	return Catalog.Format(msgs.locale, "worktreesLabel", nil)
+}
+
+// CurrentWorktree says "Current"
+// in the language the app shows.
+func CurrentWorktree() string { return In(i18n.Locale()).CurrentWorktree() }
+
+// CurrentWorktree says "Current"
+// in the language of msgs.
+func (msgs Messages) CurrentWorktree() string {
+	return Catalog.Format(msgs.locale, "currentWorktree", nil)
+}
